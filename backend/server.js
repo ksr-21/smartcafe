@@ -23,17 +23,22 @@ const feedbackRoutes = require('./src/routes/feedback.routes');
 const { initSocket } = require('./src/services/socket.service');
 
 const app = express();
-const server = http.createServer(app);
+let server = null;
+let io = null;
 
-// Socket.io setup
-const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    methods: ['GET', 'POST'],
-    credentials: true,
-  },
-});
-initSocket(io);
+if (require.main === module) {
+  server = http.createServer(app);
+
+  // Socket.io setup
+  io = new Server(server, {
+    cors: {
+      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      methods: ['GET', 'POST'],
+      credentials: true,
+    },
+  });
+  initSocket(io);
+}
 
 // Security middleware
 app.use(helmet({
@@ -76,9 +81,9 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('dev'));
 }
 
-// Attach io to requests
+// Attach io to requests (if running standalone)
 app.use((req, res, next) => {
-  req.io = io;
+  req.io = io || { emit: () => {}, to: () => ({ emit: () => {} }) };
   next();
 });
 
@@ -124,12 +129,14 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
-  server.listen(PORT, () => {
-    console.log(`\n🚀 SmartCafe Server running on port ${PORT}`);
-    console.log(`📡 Environment: ${process.env.NODE_ENV}`);
-    console.log(`🔗 API: http://localhost:${PORT}/api`);
-    console.log(`❤️  Health: http://localhost:${PORT}/api/health\n`);
-  });
+  if (server) {
+    server.listen(PORT, () => {
+      console.log(`\n🚀 SmartCafe Server running on port ${PORT}`);
+      console.log(`📡 Environment: ${process.env.NODE_ENV}`);
+      console.log(`🔗 API: http://localhost:${PORT}/api`);
+      console.log(`❤️  Health: http://localhost:${PORT}/api/health\n`);
+    });
+  }
 };
 
 if (require.main === module) { startServer(); }
