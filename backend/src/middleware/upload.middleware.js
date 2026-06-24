@@ -3,11 +3,18 @@ const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const fs = require('fs');
 
-// Configure Supabase Client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Configure Supabase Client conditionally
+let supabase = null;
+if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  try {
+    supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+  } catch (err) {
+    console.error('Failed to initialize Supabase client:', err.message);
+  }
+}
 
 // Use disk storage as fallback (when Cloudinary not configured)
 const storage = multer.diskStorage({
@@ -42,11 +49,7 @@ const upload = multer({
 const uploadToCloudinary = async (req, res, next) => {
   if (!req.file) return next();
 
-  const isSupabaseConfigured =
-    process.env.SUPABASE_URL &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (isSupabaseConfigured) {
+  if (supabase) {
     try {
       const fileBuffer = fs.readFileSync(req.file.path);
       const cafeFolder = req.user?.cafe?._id || 'general';
@@ -90,11 +93,7 @@ const uploadToCloudinary = async (req, res, next) => {
 const deleteFromCloudinary = async (publicId) => {
   if (!publicId) return;
 
-  const isSupabaseConfigured =
-    process.env.SUPABASE_URL &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!isSupabaseConfigured) return;
+  if (!supabase) return;
 
   try {
     const { error } = await supabase.storage
