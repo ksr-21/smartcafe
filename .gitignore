@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Build directories
+dist/
+frontend/dist/
+
+# Local uploads and temp folders
+uploads/
+backend/uploads/
+
+# Environment configurations (Critical: prevents pushing secrets)
+.env
+backend/.env
+frontend/.env
+.env.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# System/IDE files
+.DS_Store
+.vscode/
+.idea/
