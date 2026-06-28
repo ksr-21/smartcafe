@@ -7,6 +7,9 @@ module.exports = async (req, res) => {
   if (req.url && !req.url.startsWith('/api')) {
     req.url = '/api' + (req.url === '/' ? '' : req.url);
   }
+  if (req.originalUrl && !req.originalUrl.startsWith('/api')) {
+    req.originalUrl = '/api' + (req.originalUrl === '/' ? '' : req.originalUrl);
+  }
 
   return app(req, res);
 };

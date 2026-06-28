@@ -31,7 +31,16 @@ const request = async (endpoint: string, options: FetchOptions = {}) => {
 
   try {
     const response = await fetch(url, config);
-    const data = await response.json();
+    const contentType = response.headers.get("content-type");
+    let data;
+
+    if (contentType && contentType.includes("application/json")) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      data = { message: `Server error: ${response.status} ${response.statusText}` };
+      console.error('Non-JSON response:', text);
+    }
     
     if (!response.ok) {
       // Auto logout on token expiration/invalid token
