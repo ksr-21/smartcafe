@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { auth } from '../firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface CafeInfo {
   id: string;
@@ -51,7 +53,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(userData);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await auth.signOut();
+    } catch (error) {
+      console.error('Failed to sign out from Firebase', error);
+    }
     localStorage.removeItem('smartcafe_token');
     localStorage.removeItem('smartcafe_user');
     setToken(null);
@@ -91,30 +98,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const initAuth = async () => {
-      const savedToken = localStorage.getItem('smartcafe_token');
-      const savedUser = localStorage.getItem('smartcafe_user');
-
-      if (savedToken && savedUser) {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-        
-        // Fetch fresh profile in background
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
         try {
+          const token = await firebaseUser.getIdToken();
           const res = await api.auth.me();
           if (res.success && res.user) {
+            setToken(token);
             setUser(res.user);
+            localStorage.setItem('smartcafe_token', token);
             localStorage.setItem('smartcafe_user', JSON.stringify(res.user));
           }
         } catch (err) {
           console.error('Session verification failed, logging out.', err);
           logout();
         }
+      } else {
+        logout();
       }
       setLoading(false);
-    };
-
-    initAuth();
+    });
+    return () => unsubscribe();
   }, []);
 
   return (
