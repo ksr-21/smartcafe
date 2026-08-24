@@ -55,6 +55,7 @@ export const TableManagement: React.FC = () => {
 
   useEffect(() => {
     if (!user?.cafe?.id) return;
+    if (!db) return;
 
     setLoading(true);
     const tablesRef = collection(db, 'tables');
