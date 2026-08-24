@@ -8,6 +8,8 @@ export const api = {
   auth: {
     register: async (body: any) => {
       try {
+        if (!auth) return { success: false, message: 'Auth not initialized' };
+        if (!db) return { success: false, message: 'Database not initialized' };
         const userCredential = await createUserWithEmailAndPassword(auth, body.email, body.password);
         const user = userCredential.user;
         const token = await user.getIdToken();
@@ -38,9 +40,11 @@ export const api = {
     },
     login: async (body: any) => {
       try {
+        if (!auth) return { success: false, message: 'Auth not initialized' };
         const userCredential = await signInWithEmailAndPassword(auth, body.email, body.password);
         const user = userCredential.user;
         const token = await user.getIdToken();
+        if (!db) return { success: false, message: 'Database not initialized' };
         const docRef = doc(db, 'users', user.uid);
         const docSnap = await getDoc(docRef);
         let userData = docSnap.exists() ? docSnap.data() : { id: user.uid, email: user.email, role: 'cafe_admin' as const, name: 'Unknown' };
@@ -51,9 +55,10 @@ export const api = {
       }
     },
     me: async (): Promise<any> => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
       try {
         const user = auth.currentUser;
+        if (!db) return { success: false, message: 'Database not initialized' };
         const docRef = doc(db, 'users', user.uid);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
@@ -66,14 +71,15 @@ export const api = {
       }
     },
     updateProfile: async (body: any) => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!db) return { success: false, message: 'Database not initialized' };
       const userRef = doc(db, 'users', auth.currentUser.uid);
       await updateDoc(userRef, body);
       const updatedSnap = await getDoc(userRef);
       return { success: true, user: updatedSnap.data() };
     },
     changePassword: async (body: any) => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
       try {
         await updatePassword(auth.currentUser, body.newPassword);
         return { success: true };
@@ -83,6 +89,7 @@ export const api = {
     },
     forgotPassword: async (body: any) => {
       try {
+        if (!auth) return { success: false, message: 'Auth not initialized' };
         await sendPasswordResetEmail(auth, body.email);
         return { success: true };
       } catch (err: any) {
@@ -102,13 +109,15 @@ export const api = {
   // Cafe Settings
   cafe: {
     getDetails: async () => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       if (!userDoc.exists()) return { success: false };
       return { success: true, cafe: userDoc.data()?.cafe };
     },
     updateDetails: async (body: any) => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!db) return { success: false, message: 'Database not initialized' };
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const userDoc = await getDoc(userRef);
       const currentCafe = userDoc.data()?.cafe || {};
@@ -126,50 +135,60 @@ export const api = {
   menu: {
     // Categories
     getCategories: async () => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated', categories: [] };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated', categories: [] };
+      if (!db) return { success: false, message: 'Database not initialized', categories: [] };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       const cafeId = userDoc.data()?.cafe?.id;
-      if (!cafeId) return { success: false, categories: [] };
+      if (!cafeId) return { success: false, message: 'No cafe ID', categories: [], items: [] };
       const q = query(collection(db, 'menuCategories'), where('cafeId', '==', cafeId));
       const snapshot = await getDocs(q);
       return { success: true, categories: snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any)) };
     },
     createCategory: async (body: any) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
+      if (!db) return { success: false, message: 'Database not initialized' };
       const ref = await addDoc(collection(db, 'menuCategories'), { ...body, cafeId });
       return { success: true, category: { _id: ref.id, ...body, cafeId } };
     },
     updateCategory: async (id: string, body: any) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       await updateDoc(doc(db, 'menuCategories', id), body);
       return { success: true, category: { _id: id, ...body } };
     },
     deleteCategory: async (id: string) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       await deleteDoc(doc(db, 'menuCategories', id));
       return { success: true };
     },
 
     // Items
     getItems: async () => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated', items: [] };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated', items: [] };
+      if (!db) return { success: false, message: 'Database not initialized', items: [] };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       const cafeId = userDoc.data()?.cafe?.id;
-      if (!cafeId) return { success: false, items: [] };
+      if (!cafeId) return { success: false, message: 'No cafe ID', categories: [], items: [] };
       const q = query(collection(db, 'menuItems'), where('cafeId', '==', cafeId));
       const snapshot = await getDocs(q);
       return { success: true, items: snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any)) };
     },
     createItem: async (body: any) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
+      if (!db) return { success: false, message: 'Database not initialized' };
       const ref = await addDoc(collection(db, 'menuItems'), { ...body, cafeId });
       return { success: true, item: { _id: ref.id, ...body, cafeId }, message: 'Created' };
     },
     updateItem: async (id: string, body: any) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       await updateDoc(doc(db, 'menuItems', id), body);
       return { success: true, item: { _id: id, ...body }, message: 'Updated' };
     },
     deleteItem: async (id: string) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       await deleteDoc(doc(db, 'menuItems', id));
       return { success: true };
     },
@@ -181,11 +200,13 @@ export const api = {
   // Tables
   tables: {
     list: async () => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated', tables: [] };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated', tables: [] };
+      if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       const cafeId = userDoc.data()?.cafe?.id;
       if (!cafeId) return { success: false, message: 'No cafe associated', tables: [] };
 
+      if (!db) return { success: false, message: 'Database not initialized' };
       const tablesRef = collection(db, 'tables');
       const q = query(tablesRef, where('cafeId', '==', cafeId));
       const querySnapshot = await getDocs(q);
@@ -194,8 +215,10 @@ export const api = {
       return { success: true, tables };
     },
     create: async (body: any) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
+      if (!db) return { success: false, message: 'Database not initialized' };
       const tablesRef = collection(db, 'tables');
 
       const newTable = {
@@ -210,9 +233,11 @@ export const api = {
       return { success: true, table: { _id: docRef.id, ...newTable } };
     },
     bulkCreate: async (body: any) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
 
+      if (!db) return { success: false, message: 'Database not initialized' };
       const batch = writeBatch(db);
       const tablesRef = collection(db, 'tables');
 
@@ -240,12 +265,14 @@ export const api = {
       return { success: true, message: `Created ${count} tables successfully`, tables: newTables };
     },
     update: async (id: string, body: any) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const tableRef = doc(db, 'tables', id);
       await updateDoc(tableRef, body);
       const updatedDoc = await getDoc(tableRef);
       return { success: true, table: { _id: updatedDoc.id, ...updatedDoc.data() } };
     },
     delete: async (id: string) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       await deleteDoc(doc(db, 'tables', id));
       return { success: true };
     },
@@ -253,6 +280,7 @@ export const api = {
       return { success: true, qrDataUrl: '' }; // Fake QR Code return
     },
     regenerateQR: async (id: string) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const tableRef = doc(db, 'tables', id);
       const newTableToken = crypto.randomUUID();
       await updateDoc(tableRef, { tableToken: newTableToken });
@@ -264,12 +292,14 @@ export const api = {
   // Orders
   orders: {
     list: async (params?: any) => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated', orders: [] };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated', orders: [] };
 
+      if (!db) return { success: false, message: 'Database not initialized', orders: [] };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       const cafeId = userDoc.data()?.cafe?.id;
       if (!cafeId) return { success: false, message: 'No cafe associated', orders: [] };
 
+      if (!db) return { success: false, message: 'Database not initialized', orders: [] };
       const ordersRef = collection(db, 'orders');
       let q;
       if (params?.activeOnly === 'true') {
@@ -283,6 +313,7 @@ export const api = {
       return { success: true, orders };
     },
     getDetails: async (id: string) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const docSnap = await getDoc(doc(db, 'orders', id));
       if (docSnap.exists()) {
         return { success: true, order: { _id: docSnap.id, ...docSnap.data() } as any };
@@ -290,6 +321,7 @@ export const api = {
       return { success: false, message: 'Order not found' };
     },
     updateStatus: async (id: string, body: { status: string; estimatedTime?: number }) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const orderRef = doc(db, 'orders', id);
       const updates: any = { status: body.status, updatedAt: new Date().toISOString() };
       if (body.estimatedTime !== undefined) updates.estimatedTime = body.estimatedTime;
@@ -297,6 +329,7 @@ export const api = {
       return { success: true };
     },
     cancel: async (id: string, body: { reason: string }) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const orderRef = doc(db, 'orders', id);
       await updateDoc(orderRef, { status: 'cancelled', cancelReason: body.reason, updatedAt: new Date().toISOString() });
       return { success: true };
@@ -306,11 +339,13 @@ export const api = {
   // Invoices & Billing
   invoices: {
     list: async (_params?: any) => {
-      if (!auth.currentUser) return { success: false, message: 'Not authenticated', invoices: [] };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated', invoices: [] };
+      if (!db) return { success: false, message: 'Database not initialized', invoices: [] };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       const cafeId = userDoc.data()?.cafe?.id;
       if (!cafeId) return { success: false, message: 'No cafe associated', invoices: [] };
 
+      if (!db) return { success: false, message: 'Database not initialized', invoices: [] };
       const invoicesRef = collection(db, 'invoices');
       const q = query(invoicesRef, where('cafeId', '==', cafeId));
       const querySnapshot = await getDocs(q);
@@ -319,6 +354,7 @@ export const api = {
       return { success: true, invoices };
     },
     create: async (body: { orderId: string; paymentMethod: string; discount?: number }) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const orderSnap = await getDoc(doc(db, 'orders', body.orderId));
       if (!orderSnap.exists()) throw new Error('Order not found');
 
@@ -333,9 +369,11 @@ export const api = {
         createdAt: new Date().toISOString()
       };
 
+      if (!db) return { success: false, message: 'Database not initialized' };
       const invoicesRef = collection(db, 'invoices');
       const docRef = await addDoc(invoicesRef, invoiceData);
 
+      if (!db) return { success: false, message: 'Database not initialized' };
       await updateDoc(doc(db, 'orders', body.orderId), { status: 'completed' });
 
       return { success: true, invoice: { _id: docRef.id, ...invoiceData } };
@@ -368,6 +406,7 @@ export const api = {
   // Customer Public
   customer: {
     getMenu: async (cafeId: string, tableToken: string) => {
+      if (!db) return { success: false, message: 'Database not initialized', categories: [], items: [] };
       const cafeQuery = query(collection(db, 'users'), where('cafe.id', '==', cafeId));
       const cafeSnap = await getDocs(cafeQuery);
       if (cafeSnap.empty) return { success: false, message: 'Cafe not found', categories: [], items: [] };
@@ -375,6 +414,7 @@ export const api = {
       const cafe = cafeSnap.docs[0].data().cafe;
 
       // Basic table validation (optional depending on strictness)
+      if (!db) return { success: false, message: 'Database not initialized', categories: [], items: [] };
       const tablesRef = collection(db, 'tables');
       const tableQ = query(tablesRef, where('cafeId', '==', cafeId), where('tableToken', '==', tableToken));
       const tableSnap = await getDocs(tableQ);
@@ -404,8 +444,10 @@ export const api = {
       customerMobile?: string;
       specialInstructions?: string;
     }) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const ordersRef = collection(db, 'orders');
 
+      if (!db) return { success: false, message: 'Database not initialized' };
       const tablesRef = collection(db, 'tables');
       const q = query(tablesRef, where('cafeId', '==', body.cafeId), where('tableToken', '==', body.tableToken));
       const querySnapshot = await getDocs(q);
@@ -416,6 +458,7 @@ export const api = {
       }
 
       // Fetch prices from menu items
+      if (!db) return { success: false, message: 'Database not initialized' };
       const menuItemsRef = collection(db, 'menuItems');
       let subtotal = 0;
 
@@ -462,6 +505,7 @@ export const api = {
       return { success: true, orderId: docRef.id, order: { _id: docRef.id, ...newOrder } };
     },
     trackOrder: async (orderId: string) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const docSnap = await getDoc(doc(db, 'orders', orderId));
       if (docSnap.exists()) {
         return { success: true, order: { _id: docSnap.id, ...docSnap.data() } as any };
@@ -475,6 +519,7 @@ export const api = {
       rating: number;
       comment?: string;
     }) => {
+      if (!db) return { success: false, message: 'Database not initialized' };
       const feedbackRef = collection(db, 'feedback');
       await addDoc(feedbackRef, {
         ...body,
