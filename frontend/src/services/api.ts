@@ -1,3 +1,7 @@
+import { auth, db } from '../firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+
 const BASE_URL = '/api';
 
 interface FetchOptions extends RequestInit {
@@ -64,9 +68,65 @@ const request = async (endpoint: string, options: FetchOptions = {}) => {
 export const api = {
   // Auth
   auth: {
-    register: (body: any) => request('/auth/register', { method: 'POST', body }),
-    login: (body: any) => request('/auth/login', { method: 'POST', body }),
-    me: () => request('/auth/me'),
+    register: async (body: any) => {
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, body.email, body.password);
+        const user = userCredential.user;
+        const token = await user.getIdToken();
+        const userData = {
+          id: user.uid,
+          name: body.ownerName,
+          email: body.email,
+          role: 'cafe_admin' as const,
+          cafe: {
+            id: user.uid + '_cafe',
+            businessName: body.businessName,
+            status: 'trial',
+            subscription: {
+              plan: 'free',
+              startDate: new Date().toISOString(),
+              endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              maxTables: 10,
+              maxMenuItems: 100,
+            },
+          },
+        };
+        await setDoc(doc(db, 'users', user.uid), userData);
+        return { success: true, token, user: userData } as any;
+      } catch (error: any) {
+        console.error('Firebase Auth Register Error:', error);
+        throw new Error(error.message || 'Registration failed');
+      }
+    },
+    login: async (body: any) => {
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, body.email, body.password);
+        const user = userCredential.user;
+        const token = await user.getIdToken();
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+        let userData = docSnap.exists() ? docSnap.data() : { id: user.uid, email: user.email, role: 'cafe_admin' as const, name: 'Unknown' };
+        return { success: true, token, user: userData as any } as any;
+      } catch (error: any) {
+        console.error('Firebase Auth Login Error:', error);
+        throw new Error(error.message || 'Login failed');
+      }
+    },
+    me: async (): Promise<any> => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      try {
+        const user = auth.currentUser;
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          return { success: true, user: docSnap.data() as any };
+        }
+        return { success: true, user: { id: user.uid, email: user.email, role: 'cafe_admin' as const, name: 'Unknown' } as any };
+      } catch (error: any) {
+        console.error('Firebase Auth Me Error:', error);
+        return { success: false, message: error.message };
+      }
+    },
     updateProfile: (body: any) => request('/auth/update-profile', { method: 'PUT', body }),
     changePassword: (body: any) => request('/auth/change-password', { method: 'PUT', body }),
     forgotPassword: (body: any) => request('/auth/forgot-password', { method: 'POST', body }),

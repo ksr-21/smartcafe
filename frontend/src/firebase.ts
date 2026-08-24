@@ -1,5 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -13,3 +15,5 @@ const firebaseConfig = {
 
 export const app = firebaseConfig.projectId ? initializeApp(firebaseConfig) : undefined;
 export const analytics = app ? getAnalytics(app) : undefined;
+export const auth = app ? getAuth(app) : undefined as any;
+export const db = app ? getFirestore(app) : undefined as any;
