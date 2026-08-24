@@ -4,7 +4,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 // Context Providers
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { SocketProvider } from './context/SocketContext';
 import { CartProvider } from './context/CartContext';
 
 // Components & Layouts
@@ -77,7 +76,6 @@ export const App: React.FC = () => {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <SocketProvider>
           <CartProvider>
             <Router>
               <Routes>
@@ -179,7 +177,6 @@ export const App: React.FC = () => {
               </Routes>
             </Router>
           </CartProvider>
-        </SocketProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../services/api';
-import { useSocket } from '../context/SocketContext';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
 import { 
   Plus, 
   Trash2, 
@@ -49,40 +51,32 @@ export const TableManagement: React.FC = () => {
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [activeQrTable, setActiveQrTable] = useState<Table | null>(null);
 
-  const { socket } = useSocket();
+  const { user } = useAuth();
 
-  const fetchTables = async () => {
+  useEffect(() => {
+    if (!user?.cafe?.id) return;
+
     setLoading(true);
-    try {
-      const res = await api.tables.list();
-      if (res.success) {
-        setTables(res.tables);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch tables list.');
-    } finally {
+    const tablesRef = collection(db, 'tables');
+    const q = query(tablesRef, where('cafeId', '==', user.cafe.id));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const liveTables = snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any));
+      // Sort tables by tableNumber numeric value
+      setTables(liveTables.sort((a,b) => {
+        const aNum = Number(a.tableNumber.replace(/\D/g, ''));
+        const bNum = Number(b.tableNumber.replace(/\D/g, ''));
+        return aNum - bNum;
+      }));
       setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchTables();
-  }, []);
-
-  // Listen to live table updates via sockets
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('table:updated', (updatedTable: Table) => {
-      setTables((prev) => 
-        prev.map((t) => t._id === updatedTable._id ? { ...t, ...updatedTable } : t)
-      );
+    }, (err) => {
+      console.error(err);
+      setError('Failed to fetch tables list.');
+      setLoading(false);
     });
 
-    return () => {
-      socket.off('table:updated');
-    };
-  }, [socket]);
+    return () => unsubscribe();
+  }, [user?.cafe?.id]);
 
   // Create single table
   const handleCreateTable = async (e: React.FormEvent) => {
@@ -111,7 +105,6 @@ export const TableManagement: React.FC = () => {
         startFrom: Number(bulkForm.startFrom)
       });
       if (res.success) {
-        fetchTables();
         setBulkModalOpen(false);
       }
     } catch (err: any) {

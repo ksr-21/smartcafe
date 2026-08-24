@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../services/api';
-import { useSocket } from '../context/SocketContext';
 import { playNotificationSound } from '../utils/audio';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
 import { 
   Bell, 
   Clock, 
@@ -50,60 +52,42 @@ export const LiveOrders: React.FC = () => {
   const [cancelOrderId, setCancelOrderId] = useState('');
   const [cancelReason, setCancelReason] = useState('');
 
-  const { socket } = useSocket();
+  const { user } = useAuth();
+  const isInitialLoad = useRef(true);
 
-  const fetchLiveOrders = async () => {
+  useEffect(() => {
+    if (!user?.cafe?.id) return;
+
     setLoading(true);
-    try {
-      const res = await api.orders.list({ activeOnly: 'true' });
-      if (res.success) {
-        setOrders(res.orders);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch live orders.');
-    } finally {
+    const ordersRef = collection(db, 'orders');
+    const q = query(
+      ordersRef,
+      where('cafeId', '==', user.cafe.id),
+      where('status', 'in', ['pending', 'confirmed', 'preparing', 'ready', 'served'])
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const liveOrders = snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any));
+      setOrders(liveOrders);
       setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchLiveOrders();
-  }, []);
-
-  // Socket triggers
-  useEffect(() => {
-    if (!socket) return;
-
-    // Listen to new order placed
-    socket.on('order:new', (newOrder: Order) => {
-      console.log('⚡ New order received:', newOrder);
-      setOrders(prev => [newOrder, ...prev]);
-      playNotificationSound();
+      if (isInitialLoad.current) {
+        isInitialLoad.current = false;
+      } else {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added" && change.doc.data().status === 'pending') {
+            playNotificationSound();
+          }
+        });
+      }
+    }, (error) => {
+      console.error('Firestore snapshot error:', error);
+      setError('Failed to fetch live orders.');
+      setLoading(false);
     });
 
-    // Listen to order status updates
-    socket.on('order:updated', (updatedOrder: Order) => {
-      setOrders(prev => {
-        // If completed or cancelled, remove from active list
-        if (['completed', 'cancelled'].includes(updatedOrder.status)) {
-          return prev.filter(o => o._id !== updatedOrder._id);
-        }
-        // Otherwise, replace item
-        return prev.map(o => o._id === updatedOrder._id ? updatedOrder : o);
-      });
-    });
-
-    // Listen to cancelled orders
-    socket.on('order:cancelled', (cancelledOrder: Order) => {
-      setOrders(prev => prev.filter(o => o._id !== cancelledOrder._id));
-    });
-
-    return () => {
-      socket.off('order:new');
-      socket.off('order:updated');
-      socket.off('order:cancelled');
-    };
-  }, [socket]);
+    return () => unsubscribe();
+  }, [user?.cafe?.id]);
 
   // Action: Update Order Status
   const handleUpdateStatus = async (id: string, newStatus: string, estTime?: number) => {

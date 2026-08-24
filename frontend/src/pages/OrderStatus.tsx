@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { useSocket } from '../context/SocketContext';
+import { db } from '../firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { 
   Coffee, 
   CheckCircle, 
@@ -52,61 +53,28 @@ export const OrderStatus: React.FC = () => {
   const [comment, setComment] = useState('');
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const { socket } = useSocket();
-
-  const fetchOrderStatus = async () => {
-    if (!orderId) return;
-    try {
-      const res = await api.customer.trackOrder(orderId);
-      if (res.success && res.order) {
-        setOrder(res.order);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to locate order.');
-    } finally {
+  useEffect(() => {
+    if (!orderId) {
       setLoading(false);
+      return;
     }
-  };
 
-  useEffect(() => {
-    fetchOrderStatus();
+    setLoading(true);
+    const unsubscribe = onSnapshot(doc(db, 'orders', orderId), (docSnap) => {
+      if (docSnap.exists()) {
+        setOrder({ _id: docSnap.id, ...docSnap.data() } as any);
+      } else {
+        setError('Failed to locate order.');
+      }
+      setLoading(false);
+    }, (err) => {
+      console.error(err);
+      setError('Failed to locate order.');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [orderId]);
-
-  // Live order updates
-  useEffect(() => {
-    if (!socket || !orderId) return;
-
-    // Join order room
-    socket.emit('join:order', orderId);
-
-    socket.on('order:updated', (updated: Order) => {
-      console.log('⚡ Order updated via socket:', updated);
-      // Ensure the cafe object is preserved if missing from the socket update payload
-      setOrder(prev => {
-        if (!prev) return updated;
-        return {
-          ...updated,
-          cafe: updated.cafe || prev.cafe
-        };
-      });
-    });
-
-    socket.on('order:cancelled', (cancelled: Order) => {
-      setOrder(prev => {
-        if (!prev) return cancelled;
-        return {
-          ...cancelled,
-          status: 'cancelled',
-          cafe: cancelled.cafe || prev.cafe
-        };
-      });
-    });
-
-    return () => {
-      socket.off('order:updated');
-      socket.off('order:cancelled');
-    };
-  }, [socket, orderId]);
 
   // Submit Feedback
   const handleFeedbackSubmit = async (e: React.FormEvent) => {

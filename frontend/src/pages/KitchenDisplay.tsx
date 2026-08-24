@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { api } from '../services/api';
-import { useSocket } from '../context/SocketContext';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useAuth } from '../context/AuthContext';
 import { playNotificationSound } from '../utils/audio';
 import { ChefHat, Clock, Check, Play, AlertTriangle } from 'lucide-react';
 
@@ -25,67 +27,43 @@ export const KitchenDisplay: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
-  const { socket } = useSocket();
 
-  const fetchKitchenOrders = async () => {
+  const { user } = useAuth();
+  const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    if (!user?.cafe?.id) return;
+
     setLoading(true);
-    try {
-      const res = await api.orders.list({ activeOnly: 'true' });
-      if (res.success) {
-        // Filter down to confirmed or preparing orders
-        const kitchenQueued = res.orders.filter((o: any) => ['confirmed', 'preparing'].includes(o.status));
-        setOrders(kitchenQueued);
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load kitchen display queue.');
-    } finally {
+    const ordersRef = collection(db, 'orders');
+    const q = query(
+      ordersRef,
+      where('cafeId', '==', user.cafe.id),
+      where('status', 'in', ['confirmed', 'preparing'])
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const liveOrders = snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any));
+      setOrders(liveOrders);
       setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    fetchKitchenOrders();
-  }, []);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on('order:new', (newOrder: Order) => {
-      // Kitchen is interested if confirmed (some configurations auto-confirm or manual confirm pushes it here)
-      if (['confirmed', 'preparing'].includes(newOrder.status)) {
-        setOrders(prev => [...prev, newOrder]);
-        playNotificationSound();
+      if (isInitialLoad.current) {
+        isInitialLoad.current = false;
+      } else {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            playNotificationSound();
+          }
+        });
       }
+    }, (error) => {
+      console.error('Firestore snapshot error:', error);
+      setError('Failed to load kitchen display queue.');
+      setLoading(false);
     });
 
-    socket.on('order:updated', (updatedOrder: Order) => {
-      setOrders(prev => {
-        // If it was pushed out of kitchen scope (e.g. marked ready, served, cancelled), remove it
-        if (!['confirmed', 'preparing'].includes(updatedOrder.status)) {
-          return prev.filter(o => o._id !== updatedOrder._id);
-        }
-        
-        // Otherwise update or add it
-        const exists = prev.some(o => o._id === updatedOrder._id);
-        if (exists) {
-          return prev.map(o => o._id === updatedOrder._id ? updatedOrder : o);
-        } else {
-          return [...prev, updatedOrder];
-        }
-      });
-    });
-
-    socket.on('order:cancelled', (cancelledOrder: Order) => {
-      setOrders(prev => prev.filter(o => o._id !== cancelledOrder._id));
-    });
-
-    return () => {
-      socket.off('order:new');
-      socket.off('order:updated');
-      socket.off('order:cancelled');
-    };
-  }, [socket]);
+    return () => unsubscribe();
+  }, [user?.cafe?.id]);
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
