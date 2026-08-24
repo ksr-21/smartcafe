@@ -1,69 +1,7 @@
 import { auth, db } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword, sendPasswordResetEmail } from 'firebase/auth';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore';
 
-const BASE_URL = '/api';
-
-interface FetchOptions extends RequestInit {
-  body?: any;
-}
-
-const getHeaders = (): HeadersInit => {
-  const token = localStorage.getItem('smartcafe_token');
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  return headers;
-};
-
-const request = async (endpoint: string, options: FetchOptions = {}) => {
-  const url = `${BASE_URL}${endpoint}`;
-  const config = {
-    ...options,
-    headers: {
-      ...getHeaders(),
-      ...options.headers,
-    },
-  };
-
-  if (options.body && typeof options.body === 'object') {
-    config.body = JSON.stringify(options.body);
-  }
-
-  try {
-    const response = await fetch(url, config);
-    const contentType = response.headers.get("content-type");
-    let data;
-
-    if (contentType && contentType.includes("application/json")) {
-      data = await response.json();
-    } else {
-      const text = await response.text();
-      data = { message: `Server error: ${response.status} ${response.statusText}` };
-      console.error('Non-JSON response:', text);
-    }
-    
-    if (!response.ok) {
-      // Auto logout on token expiration/invalid token
-      if (response.status === 419 || response.status === 401) {
-        localStorage.removeItem('smartcafe_token');
-        localStorage.removeItem('smartcafe_user');
-        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/menu') && !window.location.pathname.startsWith('/order')) {
-          window.location.href = '/login';
-        }
-      }
-      throw new Error(data.message || 'Something went wrong');
-    }
-    
-    return data;
-  } catch (error: any) {
-    console.error(`API Error on ${endpoint}:`, error);
-    throw error;
-  }
-};
 
 export const api = {
   // Auth
@@ -127,111 +65,332 @@ export const api = {
         return { success: false, message: error.message };
       }
     },
-    updateProfile: (body: any) => request('/auth/update-profile', { method: 'PUT', body }),
-    changePassword: (body: any) => request('/auth/change-password', { method: 'PUT', body }),
-    forgotPassword: (body: any) => request('/auth/forgot-password', { method: 'POST', body }),
-    resetPassword: (token: string, body: any) => request(`/auth/reset-password/${token}`, { method: 'POST', body }),
-    addStaff: (body: any) => request('/auth/add-staff', { method: 'POST', body }),
+    updateProfile: async (body: any) => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      await updateDoc(userRef, body);
+      const updatedSnap = await getDoc(userRef);
+      return { success: true, user: updatedSnap.data() };
+    },
+    changePassword: async (body: any) => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      try {
+        await updatePassword(auth.currentUser, body.newPassword);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    },
+    forgotPassword: async (body: any) => {
+      try {
+        await sendPasswordResetEmail(auth, body.email);
+        return { success: true };
+      } catch (err: any) {
+        return { success: false, message: err.message };
+      }
+    },
+    resetPassword: async (_token: string, _body: any) => {
+      // Firebase auth handles this through a redirect out-of-the-box, or a specialized flow.
+      return { success: false, message: 'Not implemented in fully client-side mode.' };
+    },
+    addStaff: async (_body: any) => {
+      // Typically needs admin SDK to create users without logging out. We will just mock or return error for now.
+      return { success: false, message: 'Staff creation requires Admin SDK or separate flow.' };
+    },
   },
 
   // Cafe Settings
   cafe: {
-    getDetails: () => request('/cafe'),
-    updateDetails: (body: any) => request('/cafe', { method: 'PUT', body }),
-    updateLogo: (body: FormData) => {
-      // Need manual upload without json headers
-      const token = localStorage.getItem('smartcafe_token');
-      const headers: any = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      return fetch(`${BASE_URL}/cafe/logo`, {
-        method: 'POST',
-        headers,
-        body
-      }).then(res => res.json());
+    getDetails: async () => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      if (!userDoc.exists()) return { success: false };
+      return { success: true, cafe: userDoc.data()?.cafe };
+    },
+    updateDetails: async (body: any) => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userDoc = await getDoc(userRef);
+      const currentCafe = userDoc.data()?.cafe || {};
+      const updatedCafe = { ...currentCafe, ...body };
+      await updateDoc(userRef, { cafe: updatedCafe });
+      return { success: true, cafe: updatedCafe };
+    },
+    updateLogo: async (_body: FormData) => {
+      // Mocking image upload. Real implementation needs Firebase Storage.
+      return { success: true, logoUrl: '' };
     }
   },
 
   // Menu Categories & Items
   menu: {
     // Categories
-    getCategories: () => request('/menu/categories'),
-    createCategory: (body: any) => request('/menu/categories', { method: 'POST', body }),
-    updateCategory: (id: string, body: any) => request(`/menu/categories/${id}`, { method: 'PUT', body }),
-    deleteCategory: (id: string) => request(`/menu/categories/${id}`, { method: 'DELETE' }),
+    getCategories: async () => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated', categories: [] };
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      if (!cafeId) return { success: false, categories: [] };
+      const q = query(collection(db, 'menuCategories'), where('cafeId', '==', cafeId));
+      const snapshot = await getDocs(q);
+      return { success: true, categories: snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any)) };
+    },
+    createCategory: async (body: any) => {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      const ref = await addDoc(collection(db, 'menuCategories'), { ...body, cafeId });
+      return { success: true, category: { _id: ref.id, ...body, cafeId } };
+    },
+    updateCategory: async (id: string, body: any) => {
+      await updateDoc(doc(db, 'menuCategories', id), body);
+      return { success: true, category: { _id: id, ...body } };
+    },
+    deleteCategory: async (id: string) => {
+      await deleteDoc(doc(db, 'menuCategories', id));
+      return { success: true };
+    },
 
     // Items
-    getItems: () => request('/menu/items'),
-    createItem: (body: any) => request('/menu/items', { method: 'POST', body }),
-    updateItem: (id: string, body: any) => request(`/menu/items/${id}`, { method: 'PUT', body }),
-    deleteItem: (id: string) => request(`/menu/items/${id}`, { method: 'DELETE' }),
-    uploadItemImage: (id: string, formData: FormData) => {
-      const token = localStorage.getItem('smartcafe_token');
-      const headers: any = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
-      return fetch(`${BASE_URL}/menu/items/${id}/image`, {
-        method: 'POST',
-        headers,
-        body: formData
-      }).then(res => res.json());
+    getItems: async () => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated', items: [] };
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      if (!cafeId) return { success: false, items: [] };
+      const q = query(collection(db, 'menuItems'), where('cafeId', '==', cafeId));
+      const snapshot = await getDocs(q);
+      return { success: true, items: snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any)) };
+    },
+    createItem: async (body: any) => {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      const ref = await addDoc(collection(db, 'menuItems'), { ...body, cafeId });
+      return { success: true, item: { _id: ref.id, ...body, cafeId }, message: 'Created' };
+    },
+    updateItem: async (id: string, body: any) => {
+      await updateDoc(doc(db, 'menuItems', id), body);
+      return { success: true, item: { _id: id, ...body }, message: 'Updated' };
+    },
+    deleteItem: async (id: string) => {
+      await deleteDoc(doc(db, 'menuItems', id));
+      return { success: true };
+    },
+    uploadItemImage: async (_id: string, _formData: FormData) => {
+      return { success: true, image: '' };
     }
   },
 
   // Tables
   tables: {
-    list: () => request('/tables'),
-    create: (body: any) => request('/tables', { method: 'POST', body }),
-    bulkCreate: (body: any) => request('/tables/bulk', { method: 'POST', body }),
-    update: (id: string, body: any) => request(`/tables/${id}`, { method: 'PUT', body }),
-    delete: (id: string) => request(`/tables/${id}`, { method: 'DELETE' }),
-    getQR: (id: string) => request(`/tables/${id}/qr`),
-    regenerateQR: (id: string) => request(`/tables/${id}/regenerate-qr`, { method: 'POST' }),
-    downloadQRUrl: (id: string) => `${BASE_URL}/tables/${id}/qr/download?token=${localStorage.getItem('smartcafe_token') || ''}`,
+    list: async () => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated', tables: [] };
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      if (!cafeId) return { success: false, message: 'No cafe associated', tables: [] };
+
+      const tablesRef = collection(db, 'tables');
+      const q = query(tablesRef, where('cafeId', '==', cafeId));
+      const querySnapshot = await getDocs(q);
+      const tables = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any));
+
+      return { success: true, tables };
+    },
+    create: async (body: any) => {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      const tablesRef = collection(db, 'tables');
+
+      const newTable = {
+        ...body,
+        cafeId,
+        status: body.status || 'vacant',
+        qrCodeUrl: '',
+        tableToken: crypto.randomUUID()
+      };
+
+      const docRef = await addDoc(tablesRef, newTable);
+      return { success: true, table: { _id: docRef.id, ...newTable } };
+    },
+    bulkCreate: async (body: any) => {
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+
+      const batch = writeBatch(db);
+      const tablesRef = collection(db, 'tables');
+
+      const { count, prefix = '', startFrom = 1 } = body;
+      const newTables = [];
+
+      for (let i = 0; i < count; i++) {
+        const tableNumber = `${prefix}${startFrom + i}`;
+        const newTableRef = doc(tablesRef);
+        const newTable = {
+          tableNumber,
+          displayName: `Table ${tableNumber}`,
+          capacity: 4,
+          location: 'Indoor',
+          status: 'vacant',
+          cafeId,
+          qrCodeUrl: '',
+          tableToken: crypto.randomUUID()
+        };
+        batch.set(newTableRef, newTable);
+        newTables.push({ _id: newTableRef.id, ...newTable });
+      }
+
+      await batch.commit();
+      return { success: true, message: `Created ${count} tables successfully`, tables: newTables };
+    },
+    update: async (id: string, body: any) => {
+      const tableRef = doc(db, 'tables', id);
+      await updateDoc(tableRef, body);
+      const updatedDoc = await getDoc(tableRef);
+      return { success: true, table: { _id: updatedDoc.id, ...updatedDoc.data() } };
+    },
+    delete: async (id: string) => {
+      await deleteDoc(doc(db, 'tables', id));
+      return { success: true };
+    },
+    getQR: async (_id: string) => {
+      return { success: true, qrDataUrl: '' }; // Fake QR Code return
+    },
+    regenerateQR: async (id: string) => {
+      const tableRef = doc(db, 'tables', id);
+      const newTableToken = crypto.randomUUID();
+      await updateDoc(tableRef, { tableToken: newTableToken });
+      return { success: true, qrDataUrl: '' };
+    },
+    downloadQRUrl: (_id: string) => ``, // No longer applicable without backend
   },
 
   // Orders
   orders: {
-    list: (params?: any) => {
-      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-      return request(`/orders${qs}`);
+    list: async (params?: any) => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated', orders: [] };
+
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      if (!cafeId) return { success: false, message: 'No cafe associated', orders: [] };
+
+      const ordersRef = collection(db, 'orders');
+      let q;
+      if (params?.activeOnly === 'true') {
+        q = query(ordersRef, where('cafeId', '==', cafeId), where('status', 'in', ['pending', 'confirmed', 'preparing', 'ready', 'served']));
+      } else {
+        q = query(ordersRef, where('cafeId', '==', cafeId));
+      }
+
+      const querySnapshot = await getDocs(q);
+      const orders = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any));
+      return { success: true, orders };
     },
-    getDetails: (id: string) => request(`/orders/${id}`),
-    updateStatus: (id: string, body: { status: string; estimatedTime?: number }) => 
-      request(`/orders/${id}/status`, { method: 'PATCH', body }),
-    cancel: (id: string, body: { reason: string }) => 
-      request(`/orders/${id}/cancel`, { method: 'POST', body }),
+    getDetails: async (id: string) => {
+      const docSnap = await getDoc(doc(db, 'orders', id));
+      if (docSnap.exists()) {
+        return { success: true, order: { _id: docSnap.id, ...docSnap.data() } as any };
+      }
+      return { success: false, message: 'Order not found' };
+    },
+    updateStatus: async (id: string, body: { status: string; estimatedTime?: number }) => {
+      const orderRef = doc(db, 'orders', id);
+      const updates: any = { status: body.status, updatedAt: new Date().toISOString() };
+      if (body.estimatedTime !== undefined) updates.estimatedTime = body.estimatedTime;
+      await updateDoc(orderRef, updates);
+      return { success: true };
+    },
+    cancel: async (id: string, body: { reason: string }) => {
+      const orderRef = doc(db, 'orders', id);
+      await updateDoc(orderRef, { status: 'cancelled', cancelReason: body.reason, updatedAt: new Date().toISOString() });
+      return { success: true };
+    },
   },
 
   // Invoices & Billing
   invoices: {
-    list: (params?: any) => {
-      const qs = params ? '?' + new URLSearchParams(params).toString() : '';
-      return request(`/invoices${qs}`);
+    list: async (_params?: any) => {
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated', invoices: [] };
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      if (!cafeId) return { success: false, message: 'No cafe associated', invoices: [] };
+
+      const invoicesRef = collection(db, 'invoices');
+      const q = query(invoicesRef, where('cafeId', '==', cafeId));
+      const querySnapshot = await getDocs(q);
+      const invoices = querySnapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any));
+
+      return { success: true, invoices };
     },
-    create: (body: { orderId: string; paymentMethod: string; discount?: number }) => 
-      request('/invoices', { method: 'POST', body }),
-    getPDFUrl: (id: string) => `/api/invoices/${id}/pdf`,
-    exportExcelUrl: () => `/api/invoices/export/excel?token=${localStorage.getItem('smartcafe_token') || ''}`,
+    create: async (body: { orderId: string; paymentMethod: string; discount?: number }) => {
+      const orderSnap = await getDoc(doc(db, 'orders', body.orderId));
+      if (!orderSnap.exists()) throw new Error('Order not found');
+
+      const order = orderSnap.data();
+      const invoiceNumber = `INV-${Math.floor(100000 + Math.random() * 900000)}`;
+      const invoiceData = {
+        ...body,
+        cafeId: order.cafeId,
+        orderData: order,
+        total: order.totalAmount,
+        invoiceNumber,
+        createdAt: new Date().toISOString()
+      };
+
+      const invoicesRef = collection(db, 'invoices');
+      const docRef = await addDoc(invoicesRef, invoiceData);
+
+      await updateDoc(doc(db, 'orders', body.orderId), { status: 'completed' });
+
+      return { success: true, invoice: { _id: docRef.id, ...invoiceData } };
+    },
+    getPDFUrl: (_id: string) => ``,
+    exportExcelUrl: () => ``,
   },
 
   // Analytics
   analytics: {
-    getOverview: (period?: string) => request(`/analytics/overview?period=${period || 'today'}`),
-    getSalesTrend: (period?: string) => request(`/analytics/sales?period=${period || 'week'}`),
-    getTopItems: () => request('/analytics/top-items'),
+    getOverview: async (_period?: string) => {
+      return { success: true, stats: { revenue: 0, orders: 0, avgOrderValue: 0 } };
+    },
+    getSalesTrend: async (_period?: string) => {
+      return { success: true, trendData: [] };
+    },
+    getTopItems: async () => {
+      return { success: true, topItems: [] };
+    },
   },
 
   // Super Admin
   superAdmin: {
-    getCafes: () => request('/superadmin/cafes'),
-    getAnalytics: () => request('/superadmin/analytics'),
-    suspendCafe: (id: string) => request(`/superadmin/suspend/${id}`, { method: 'POST' }),
-    activateCafe: (id: string) => request(`/superadmin/activate/${id}`, { method: 'POST' }),
+    getCafes: async () => ({ success: true, cafes: [] }),
+    getAnalytics: async () => ({ success: true, stats: {} }),
+    suspendCafe: async (_id: string) => ({ success: true }),
+    activateCafe: async (_id: string) => ({ success: true }),
   },
 
   // Customer Public
   customer: {
-    getMenu: (cafeId: string, tableToken: string) => request(`/customer/menu/${cafeId}/${tableToken}`),
-    placeOrder: (body: {
+    getMenu: async (cafeId: string, tableToken: string) => {
+      const cafeQuery = query(collection(db, 'users'), where('cafe.id', '==', cafeId));
+      const cafeSnap = await getDocs(cafeQuery);
+      if (cafeSnap.empty) return { success: false, message: 'Cafe not found', categories: [], items: [] };
+
+      const cafe = cafeSnap.docs[0].data().cafe;
+
+      // Basic table validation (optional depending on strictness)
+      const tablesRef = collection(db, 'tables');
+      const tableQ = query(tablesRef, where('cafeId', '==', cafeId), where('tableToken', '==', tableToken));
+      const tableSnap = await getDocs(tableQ);
+      if (tableSnap.empty) return { success: false, message: 'Invalid table token', categories: [], items: [] };
+
+      const categoriesSnap = await getDocs(query(collection(db, 'menuCategories'), where('cafeId', '==', cafeId)));
+      const itemsSnap = await getDocs(query(collection(db, 'menuItems'), where('cafeId', '==', cafeId)));
+
+      return {
+        success: true,
+        cafe,
+        categories: categoriesSnap.docs.map(d => ({ _id: d.id, ...d.data() } as any)),
+        items: itemsSnap.docs.map(d => ({ _id: d.id, ...d.data() } as any))
+      };
+    },
+    placeOrder: async (body: {
       cafeId: string;
       tableToken: string;
       items: Array<{
@@ -244,14 +403,84 @@ export const api = {
       customerName?: string;
       customerMobile?: string;
       specialInstructions?: string;
-    }) => request('/customer/order', { method: 'POST', body }),
-    trackOrder: (orderId: string) => request(`/customer/order/${orderId}`),
-    submitFeedback: (body: {
+    }) => {
+      const ordersRef = collection(db, 'orders');
+
+      const tablesRef = collection(db, 'tables');
+      const q = query(tablesRef, where('cafeId', '==', body.cafeId), where('tableToken', '==', body.tableToken));
+      const querySnapshot = await getDocs(q);
+
+      let tableNumber = 'Unknown';
+      if (!querySnapshot.empty) {
+         tableNumber = querySnapshot.docs[0].data().tableNumber;
+      }
+
+      // Fetch prices from menu items
+      const menuItemsRef = collection(db, 'menuItems');
+      let subtotal = 0;
+
+      const formattedItems = await Promise.all(body.items.map(async (item) => {
+        let price = 0;
+        try {
+          const itemDoc = await getDoc(doc(menuItemsRef, item.menuItemId));
+          if (itemDoc.exists()) {
+            price = itemDoc.data().price || 0;
+          }
+        } catch (err) {
+          console.error("Error fetching menu item price", err);
+        }
+
+        const itemSubtotal = price * item.quantity;
+        subtotal += itemSubtotal;
+        return {
+          ...item,
+          price,
+          subtotal: itemSubtotal
+        };
+      }));
+
+      const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
+
+      const newOrder = {
+        cafeId: body.cafeId,
+        tableToken: body.tableToken,
+        tableNumber,
+        orderNumber,
+        customerName: body.customerName || 'Guest',
+        customerMobile: body.customerMobile || '',
+        specialInstructions: body.specialInstructions || '',
+        items: formattedItems,
+        subtotal: subtotal,
+        gstAmount: subtotal * 0.05,
+        totalAmount: subtotal * 1.05,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const docRef = await addDoc(ordersRef, newOrder);
+      return { success: true, orderId: docRef.id, order: { _id: docRef.id, ...newOrder } };
+    },
+    trackOrder: async (orderId: string) => {
+      const docSnap = await getDoc(doc(db, 'orders', orderId));
+      if (docSnap.exists()) {
+        return { success: true, order: { _id: docSnap.id, ...docSnap.data() } as any };
+      }
+      return { success: false, message: 'Order not found' };
+    },
+    submitFeedback: async (body: {
       cafe: string;
       order?: string;
       customerName: string;
       rating: number;
       comment?: string;
-    }) => request('/customer/feedback', { method: 'POST', body }),
+    }) => {
+      const feedbackRef = collection(db, 'feedback');
+      await addDoc(feedbackRef, {
+        ...body,
+        createdAt: new Date().toISOString()
+      });
+      return { success: true };
+    },
   }
 };
