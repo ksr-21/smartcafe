@@ -40,7 +40,31 @@ export const api = {
     },
     login: async (body: any) => {
       try {
-        if (!auth) return { success: false, message: 'Auth not initialized' };
+        if (!auth) {
+          // Demo fallback
+          if (body.email === 'owner@thecoffeehouse.com' && body.password === 'Owner@123') {
+            return {
+              success: true,
+              token: 'demo_token_admin',
+              user: { id: 'demo_admin', email: body.email, role: 'cafe_admin', name: 'Demo Admin' }
+            };
+          }
+          if (body.email === 'kitchen@thecoffeehouse.com' && body.password === 'Kitchen@123') {
+            return {
+              success: true,
+              token: 'demo_token_kitchen',
+              user: { id: 'demo_kitchen', email: body.email, role: 'kitchen_staff', name: 'Demo Kitchen' }
+            };
+          }
+          if (body.email === 'admin@smartcafe.app' && body.password === 'Admin@123') {
+            return {
+              success: true,
+              token: 'demo_token_superadmin',
+              user: { id: 'demo_superadmin', email: body.email, role: 'super_admin', name: 'Demo Super Admin' }
+            };
+          }
+          return { success: false, message: 'Auth not initialized' };
+        }
         const userCredential = await signInWithEmailAndPassword(auth, body.email, body.password);
         const user = userCredential.user;
         const token = await user.getIdToken();
