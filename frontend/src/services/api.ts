@@ -145,6 +145,7 @@ export const api = {
       return { success: true, categories: snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any)) };
     },
     createCategory: async (body: any) => {
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
       if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
@@ -175,6 +176,7 @@ export const api = {
       return { success: true, items: snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any)) };
     },
     createItem: async (body: any) => {
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
       if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
@@ -215,6 +217,7 @@ export const api = {
       return { success: true, tables };
     },
     create: async (body: any) => {
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
       if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
@@ -233,6 +236,7 @@ export const api = {
       return { success: true, table: { _id: docRef.id, ...newTable } };
     },
     bulkCreate: async (body: any) => {
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
       if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
