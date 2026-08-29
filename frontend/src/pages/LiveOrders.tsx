@@ -56,8 +56,14 @@ export const LiveOrders: React.FC = () => {
   const isInitialLoad = useRef(true);
 
   useEffect(() => {
-    if (!user?.cafe?.id) return;
-    if (!db) return;
+    if (!user?.cafe?.id) {
+      setLoading(false);
+      return;
+    }
+    if (!db) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     const ordersRef = collection(db, 'orders');

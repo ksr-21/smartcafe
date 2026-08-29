@@ -58,7 +58,10 @@ export const OrderStatus: React.FC = () => {
       setLoading(false);
       return;
     }
-    if (!db) return;
+    if (!db) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     const unsubscribe = onSnapshot(doc(db, 'orders', orderId), (docSnap) => {
