@@ -1,7 +1,7 @@
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updatePassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc, deleteDoc, addDoc, writeBatch } from 'firebase/firestore';
-
+import QRCode from 'qrcode';
 
 export const api = {
   // Auth
@@ -248,12 +248,16 @@ export const api = {
       if (!db) return { success: false, message: 'Database not initialized' };
       const tablesRef = collection(db, 'tables');
 
+      const tableToken = crypto.randomUUID();
+      const qrUrl = `${window.location.origin}/menu/${cafeId}/${tableToken}`;
+      const qrCodeUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 2 });
+
       const newTable = {
         ...body,
         cafeId,
         status: body.status || 'vacant',
-        qrCodeUrl: '',
-        tableToken: crypto.randomUUID()
+        qrCodeUrl,
+        tableToken
       };
 
       const docRef = await addDoc(tablesRef, newTable);
@@ -275,6 +279,10 @@ export const api = {
       for (let i = 0; i < count; i++) {
         const tableNumber = `${prefix}${startFrom + i}`;
         const newTableRef = doc(tablesRef);
+        const tableToken = crypto.randomUUID();
+        const qrUrl = `${window.location.origin}/menu/${cafeId}/${tableToken}`;
+        const qrCodeUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 2 });
+
         const newTable = {
           tableNumber,
           displayName: `Table ${tableNumber}`,
@@ -282,8 +290,8 @@ export const api = {
           location: 'Indoor',
           status: 'vacant',
           cafeId,
-          qrCodeUrl: '',
-          tableToken: crypto.randomUUID()
+          qrCodeUrl,
+          tableToken
         };
         batch.set(newTableRef, newTable);
         newTables.push({ _id: newTableRef.id, ...newTable });
@@ -310,9 +318,16 @@ export const api = {
     regenerateQR: async (id: string) => {
       if (!db) return { success: false, message: 'Database not initialized' };
       const tableRef = doc(db, 'tables', id);
+      const tableDoc = await getDoc(tableRef);
+      if (!tableDoc.exists()) return { success: false, message: 'Table not found' };
+      const cafeId = tableDoc.data().cafeId;
+
       const newTableToken = crypto.randomUUID();
-      await updateDoc(tableRef, { tableToken: newTableToken });
-      return { success: true, qrDataUrl: '' };
+      const qrUrl = `${window.location.origin}/menu/${cafeId}/${newTableToken}`;
+      const qrCodeUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 2 });
+
+      await updateDoc(tableRef, { tableToken: newTableToken, qrCodeUrl });
+      return { success: true, qrDataUrl: qrCodeUrl };
     },
     downloadQRUrl: (_id: string) => ``, // No longer applicable without backend
   },

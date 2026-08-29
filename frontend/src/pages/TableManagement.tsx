@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
+import QRCode from 'qrcode';
 import { 
   Plus, 
   Trash2, 
@@ -67,8 +68,24 @@ export const TableManagement: React.FC = () => {
     const tablesRef = collection(db, 'tables');
     const q = query(tablesRef, where('cafeId', '==', user.cafe.id));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const liveTables = snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any));
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      let liveTables = snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any));
+
+      // On the fly QR generation for backwards compatibility
+      liveTables = await Promise.all(liveTables.map(async (table) => {
+        if (!table.qrCodeUrl && table.tableToken) {
+          try {
+            const qrUrl = `${window.location.origin}/menu/${table.cafeId}/${table.tableToken}`;
+            const qrCodeUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 2 });
+            return { ...table, qrCodeUrl };
+          } catch (e) {
+            console.error("Failed to generate QR code for table", table._id);
+            return table;
+          }
+        }
+        return table;
+      }));
+
       // Sort tables by tableNumber numeric value
       setTables(liveTables.sort((a,b) => {
         const aNum = Number(a.tableNumber.replace(/\D/g, ''));
@@ -262,8 +279,8 @@ export const TableManagement: React.FC = () => {
             {/* Actions */}
             <div style={{ display: 'flex', gap: '8px', marginTop: 'auto', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
               <a 
-                href={api.tables.downloadQRUrl(table._id)}
-                download
+                href={table.qrCodeUrl || '#'}
+                download={`table-${table.tableNumber}-qr.png`}
                 className="btn btn-secondary btn-sm"
                 style={{ flex: 1, textDecoration: 'none' }}
                 title="Download QR PNG"
@@ -327,7 +344,8 @@ export const TableManagement: React.FC = () => {
 
             <div style={{ display: 'flex', gap: '10px' }}>
               <a 
-                href={api.tables.downloadQRUrl(activeQrTable._id)}
+                href={activeQrTable.qrCodeUrl || '#'}
+                download={`table-${activeQrTable.tableNumber}-qr.png`}
                 className="btn btn-primary"
                 style={{ flex: 1, textDecoration: 'none' }}
               >
