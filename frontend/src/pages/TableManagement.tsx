@@ -135,6 +135,13 @@ export const TableManagement: React.FC = () => {
         startFrom: Number(bulkForm.startFrom)
       });
       if (res.success) {
+        if (res.tables && Array.isArray(res.tables)) {
+          setTables(prev => [...prev, ...res.tables].sort((a,b) => {
+            const aNum = Number(a.tableNumber.replace(/\D/g, ''));
+            const bNum = Number(b.tableNumber.replace(/\D/g, ''));
+            return aNum - bNum;
+          }));
+        }
         setBulkModalOpen(false);
       } else {
         throw new Error(res.message || 'Failed to bulk create tables');
