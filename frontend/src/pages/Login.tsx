@@ -118,8 +118,10 @@ export const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Email Address</label>
+              <label htmlFor="email" className="form-label">Email Address</label>
               <input
+                id="email"
+                name="email"
                 type="email"
                 className="form-input"
                 placeholder="owner@yourcafe.com"
@@ -131,9 +133,11 @@ export const Login: React.FC = () => {
             </div>
 
             <div className="form-group" style={{ position: 'relative' }}>
-              <label className="form-label">Password</label>
+              <label htmlFor="password" className="form-label">Password</label>
               <div style={{ position: 'relative' }}>
                 <input
+                  id="password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   className="form-input"
                   placeholder="••••••••"
