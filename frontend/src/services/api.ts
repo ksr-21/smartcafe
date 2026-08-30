@@ -266,7 +266,19 @@ export const api = {
       return { success: true, tables };
     },
     create: async (body: any) => {
-      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!auth) {
+        // Demo fallback
+        const tableToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+        const newTable = {
+          ...body,
+          cafeId: 'demo_cafe',
+          status: body.status || 'vacant',
+          tableToken,
+          _id: `demo_table_${Date.now()}`
+        };
+        return { success: true, table: newTable };
+      }
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
       if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
@@ -289,7 +301,27 @@ export const api = {
       return { success: true, table: { _id: docRef.id, ...newTable } };
     },
     bulkCreate: async (body: any) => {
-      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!auth) {
+        // Demo fallback
+        const { count, prefix = '', startFrom = 1 } = body;
+        const newTables = [];
+        for (let i = 0; i < count; i++) {
+          const tableNumber = `${prefix}${startFrom + i}`;
+          const tableToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
+          newTables.push({
+            _id: `demo_table_${Date.now()}_${i}`,
+            tableNumber,
+            displayName: `Table ${tableNumber}`,
+            capacity: 4,
+            location: 'Indoor',
+            status: 'vacant' as const,
+            cafeId: 'demo_cafe',
+            tableToken
+          });
+        }
+        return { success: true, message: `Created ${count} tables successfully`, tables: newTables };
+      }
+      if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
       if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
       const cafeId = userDoc.data()?.cafe?.id;
@@ -313,7 +345,7 @@ export const api = {
           displayName: `Table ${tableNumber}`,
           capacity: 4,
           location: 'Indoor',
-          status: 'vacant',
+          status: 'vacant' as const,
           cafeId,
           qrCodeUrl,
           tableToken
