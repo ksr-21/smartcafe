@@ -109,9 +109,15 @@ export const TableManagement: React.FC = () => {
     try {
       const res = await api.tables.create(tableForm);
       if (res.success) {
-        setTables(prev => [...prev, res.table].sort((a,b) => Number(a.tableNumber) - Number(b.tableNumber)));
+        setTables(prev => [...prev, res.table].sort((a,b) => {
+          const aNum = Number(a.tableNumber.replace(/\D/g, ''));
+          const bNum = Number(b.tableNumber.replace(/\D/g, ''));
+          return aNum - bNum;
+        }));
         setTableModalOpen(false);
         setTableForm({ tableNumber: '', displayName: '', capacity: 4, location: 'Indoor' });
+      } else {
+        throw new Error(res.message || 'Failed to create table');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to create table.');
@@ -130,6 +136,8 @@ export const TableManagement: React.FC = () => {
       });
       if (res.success) {
         setBulkModalOpen(false);
+      } else {
+        throw new Error(res.message || 'Failed to bulk create tables');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to bulk create tables.');
@@ -146,9 +154,11 @@ export const TableManagement: React.FC = () => {
         if (activeQrTable?._id === id) {
           setActiveQrTable(prev => prev ? { ...prev, qrCodeUrl: res.qrDataUrl } : null);
         }
+      } else {
+        throw new Error(res.message || 'Failed to regenerate QR');
       }
     } catch (err: any) {
-      setError('Failed to regenerate QR.');
+      setError(err.message || 'Failed to regenerate QR.');
     }
   };
 
@@ -159,9 +169,11 @@ export const TableManagement: React.FC = () => {
       const res = await api.tables.delete(id);
       if (res.success) {
         setTables(prev => prev.filter(t => t._id !== id));
+      } else {
+        throw new Error(res.message || 'Failed to delete table');
       }
     } catch (err: any) {
-      setError('Failed to delete table.');
+      setError(err.message || 'Failed to delete table.');
     }
   };
 
@@ -370,6 +382,23 @@ export const TableManagement: React.FC = () => {
               </button>
             </div>
 
+            {error && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 16px',
+                backgroundColor: 'var(--danger-light)',
+                color: 'var(--danger)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.85rem',
+                marginBottom: '16px'
+              }}>
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
+            )}
+
             <form onSubmit={handleCreateTable}>
               <div className="form-group">
                 <label className="form-label">Table ID / Number *</label>
@@ -440,6 +469,23 @@ export const TableManagement: React.FC = () => {
                 <X size={20} />
               </button>
             </div>
+
+            {error && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 16px',
+                backgroundColor: 'var(--danger-light)',
+                color: 'var(--danger)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.85rem',
+                marginBottom: '16px'
+              }}>
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
+            )}
 
             <form onSubmit={handleBulkCreate}>
               <div className="form-group">
