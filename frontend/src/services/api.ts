@@ -8,7 +8,32 @@ export const api = {
   auth: {
     register: async (body: any) => {
       try {
-        if (!auth) return { success: false, message: 'Auth not initialized' };
+        if (!auth) {
+          // Demo fallback
+          const demoUser = {
+            id: 'demo_new_user',
+            name: body.ownerName,
+            email: body.email,
+            role: 'cafe_admin' as const,
+            cafe: {
+              id: 'demo_new_cafe',
+              businessName: body.businessName,
+              status: 'trial',
+              subscription: {
+                plan: 'free',
+                startDate: new Date().toISOString(),
+                endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                maxTables: 10,
+                maxMenuItems: 100,
+              },
+            },
+          };
+          return {
+            success: true,
+            token: 'demo_token_new',
+            user: demoUser
+          } as any;
+        }
         if (!db) return { success: false, message: 'Database not initialized' };
         const userCredential = await createUserWithEmailAndPassword(auth, body.email, body.password);
         const user = userCredential.user;

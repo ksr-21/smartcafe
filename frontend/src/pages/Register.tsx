@@ -144,8 +144,10 @@ export const Register: React.FC = () => {
             
             <div className="grid-cols-12">
               <div className="col-span-6 form-group">
-                <label className="form-label">Business / Cafe Name *</label>
+                <label htmlFor="businessName" className="form-label">Business / Cafe Name *</label>
                 <input
+                  id="businessName"
+                  name="businessName"
                   type="text"
                   className="form-input"
                   placeholder="e.g. Blue Tokai Cafe"
@@ -157,8 +159,10 @@ export const Register: React.FC = () => {
               </div>
 
               <div className="col-span-6 form-group">
-                <label className="form-label">GST Number (Optional)</label>
+                <label htmlFor="gstNumber" className="form-label">GST Number (Optional)</label>
                 <input
+                  id="gstNumber"
+                  name="gstNumber"
                   type="text"
                   className="form-input"
                   placeholder="e.g. 22AAAAA0000A1Z5"
@@ -175,8 +179,10 @@ export const Register: React.FC = () => {
 
             <div className="grid-cols-12">
               <div className="col-span-6 form-group">
-                <label className="form-label">Owner Name *</label>
+                <label htmlFor="ownerName" className="form-label">Owner Name *</label>
                 <input
+                  id="ownerName"
+                  name="ownerName"
                   type="text"
                   className="form-input"
                   placeholder="Raj Sharma"
@@ -188,8 +194,10 @@ export const Register: React.FC = () => {
               </div>
 
               <div className="col-span-6 form-group">
-                <label className="form-label">Mobile Number *</label>
+                <label htmlFor="mobile" className="form-label">Mobile Number *</label>
                 <input
+                  id="mobile"
+                  name="mobile"
                   type="tel"
                   className="form-input"
                   placeholder="9876543210"
@@ -201,8 +209,10 @@ export const Register: React.FC = () => {
               </div>
 
               <div className="col-span-6 form-group">
-                <label className="form-label">Owner Email *</label>
+                <label htmlFor="email" className="form-label">Owner Email *</label>
                 <input
+                  id="email"
+                  name="email"
                   type="email"
                   className="form-input"
                   placeholder="owner@yourcafe.com"
@@ -214,8 +224,10 @@ export const Register: React.FC = () => {
               </div>
 
               <div className="col-span-6 form-group">
-                <label className="form-label">Password *</label>
+                <label htmlFor="password" className="form-label">Password *</label>
                 <input
+                  id="password"
+                  name="password"
                   type="password"
                   className="form-input"
                   placeholder="At least 6 characters"
@@ -233,8 +245,10 @@ export const Register: React.FC = () => {
 
             <div className="grid-cols-12">
               <div className="col-span-12 form-group">
-                <label className="form-label">Street Address</label>
+                <label htmlFor="street" className="form-label">Street Address</label>
                 <input
+                  id="street"
+                  name="street"
                   type="text"
                   className="form-input"
                   placeholder="Shop 4, Market Lane"
@@ -245,8 +259,10 @@ export const Register: React.FC = () => {
               </div>
 
               <div className="col-span-4 form-group">
-                <label className="form-label">City</label>
+                <label htmlFor="city" className="form-label">City</label>
                 <input
+                  id="city"
+                  name="city"
                   type="text"
                   className="form-input"
                   placeholder="Bangalore"
@@ -257,8 +273,10 @@ export const Register: React.FC = () => {
               </div>
 
               <div className="col-span-4 form-group">
-                <label className="form-label">State</label>
+                <label htmlFor="state" className="form-label">State</label>
                 <input
+                  id="state"
+                  name="state"
                   type="text"
                   className="form-input"
                   placeholder="Karnataka"
@@ -269,8 +287,10 @@ export const Register: React.FC = () => {
               </div>
 
               <div className="col-span-4 form-group">
-                <label className="form-label">Pincode</label>
+                <label htmlFor="pincode" className="form-label">Pincode</label>
                 <input
+                  id="pincode"
+                  name="pincode"
                   type="text"
                   className="form-input"
                   placeholder="560001"
