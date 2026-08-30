@@ -248,7 +248,7 @@ export const api = {
       if (!db) return { success: false, message: 'Database not initialized' };
       const tablesRef = collection(db, 'tables');
 
-      const tableToken = crypto.randomUUID();
+      const tableToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
       const qrUrl = `${window.location.origin}/menu/${cafeId}/${tableToken}`;
       const qrCodeUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 2 });
 
@@ -279,7 +279,7 @@ export const api = {
       for (let i = 0; i < count; i++) {
         const tableNumber = `${prefix}${startFrom + i}`;
         const newTableRef = doc(tablesRef);
-        const tableToken = crypto.randomUUID();
+        const tableToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
         const qrUrl = `${window.location.origin}/menu/${cafeId}/${tableToken}`;
         const qrCodeUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 2 });
 
@@ -322,7 +322,7 @@ export const api = {
       if (!tableDoc.exists()) return { success: false, message: 'Table not found' };
       const cafeId = tableDoc.data().cafeId;
 
-      const newTableToken = crypto.randomUUID();
+      const newTableToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
       const qrUrl = `${window.location.origin}/menu/${cafeId}/${newTableToken}`;
       const qrCodeUrl = await QRCode.toDataURL(qrUrl, { width: 300, margin: 2 });
 
