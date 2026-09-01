@@ -88,8 +88,8 @@ export const TableManagement: React.FC = () => {
 
       // Sort tables by tableNumber numeric value
       setTables(liveTables.sort((a,b) => {
-        const aNum = Number(a.tableNumber.replace(/\D/g, ''));
-        const bNum = Number(b.tableNumber.replace(/\D/g, ''));
+        const aNum = Number(String(a.tableNumber).replace(/\D/g, ''));
+        const bNum = Number(String(b.tableNumber).replace(/\D/g, ''));
         return aNum - bNum;
       }));
       setLoading(false);
@@ -110,8 +110,8 @@ export const TableManagement: React.FC = () => {
       const res = await api.tables.create(tableForm);
       if (res.success) {
         setTables(prev => [...prev, res.table].sort((a,b) => {
-          const aNum = Number(a.tableNumber.replace(/\D/g, ''));
-          const bNum = Number(b.tableNumber.replace(/\D/g, ''));
+          const aNum = Number(String(a.tableNumber).replace(/\D/g, ''));
+          const bNum = Number(String(b.tableNumber).replace(/\D/g, ''));
           return aNum - bNum;
         }));
         setTableModalOpen(false);
@@ -137,8 +137,8 @@ export const TableManagement: React.FC = () => {
       if (res.success) {
         if (res.tables && Array.isArray(res.tables)) {
           setTables(prev => [...prev, ...res.tables].sort((a,b) => {
-            const aNum = Number(a.tableNumber.replace(/\D/g, ''));
-            const bNum = Number(b.tableNumber.replace(/\D/g, ''));
+            const aNum = Number(String(a.tableNumber).replace(/\D/g, ''));
+            const bNum = Number(String(b.tableNumber).replace(/\D/g, ''));
             return aNum - bNum;
           }));
         }
