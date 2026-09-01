@@ -8,32 +8,7 @@ export const api = {
   auth: {
     register: async (body: any) => {
       try {
-        if (!auth) {
-          // Demo fallback
-          const demoUser = {
-            id: 'demo_new_user',
-            name: body.ownerName,
-            email: body.email,
-            role: 'cafe_admin' as const,
-            cafe: {
-              id: 'demo_new_cafe',
-              businessName: body.businessName,
-              status: 'trial',
-              subscription: {
-                plan: 'free',
-                startDate: new Date().toISOString(),
-                endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                maxTables: 10,
-                maxMenuItems: 100,
-              },
-            },
-          };
-          return {
-            success: true,
-            token: 'demo_token_new',
-            user: demoUser
-          } as any;
-        }
+        if (!auth) return { success: false, message: 'Auth not initialized' };
         if (!db) return { success: false, message: 'Database not initialized' };
         const userCredential = await createUserWithEmailAndPassword(auth, body.email, body.password);
         const user = userCredential.user;
@@ -65,31 +40,7 @@ export const api = {
     },
     login: async (body: any) => {
       try {
-        if (!auth) {
-          // Demo fallback
-          if (body.email === 'owner@thecoffeehouse.com' && body.password === 'Owner@123') {
-            return {
-              success: true,
-              token: 'demo_token_admin',
-              user: { id: 'demo_admin', email: body.email, role: 'cafe_admin', name: 'Demo Admin' }
-            };
-          }
-          if (body.email === 'kitchen@thecoffeehouse.com' && body.password === 'Kitchen@123') {
-            return {
-              success: true,
-              token: 'demo_token_kitchen',
-              user: { id: 'demo_kitchen', email: body.email, role: 'kitchen_staff', name: 'Demo Kitchen' }
-            };
-          }
-          if (body.email === 'admin@smartcafe.app' && body.password === 'Admin@123') {
-            return {
-              success: true,
-              token: 'demo_token_superadmin',
-              user: { id: 'demo_superadmin', email: body.email, role: 'super_admin', name: 'Demo Super Admin' }
-            };
-          }
-          return { success: false, message: 'Auth not initialized' };
-        }
+        if (!auth) return { success: false, message: 'Auth not initialized' };
         const userCredential = await signInWithEmailAndPassword(auth, body.email, body.password);
         const user = userCredential.user;
         const token = await user.getIdToken();
@@ -266,18 +217,7 @@ export const api = {
       return { success: true, tables };
     },
     create: async (body: any) => {
-      if (!auth) {
-        // Demo fallback
-        const tableToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
-        const newTable = {
-          ...body,
-          cafeId: 'demo_cafe',
-          status: body.status || 'vacant',
-          tableToken,
-          _id: `demo_table_${Date.now()}`
-        };
-        return { success: true, table: newTable };
-      }
+      if (!auth) return { success: false, message: 'Auth not initialized' };
       if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
       if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));
@@ -301,26 +241,7 @@ export const api = {
       return { success: true, table: { _id: docRef.id, ...newTable } };
     },
     bulkCreate: async (body: any) => {
-      if (!auth) {
-        // Demo fallback
-        const { count, prefix = '', startFrom = 1 } = body;
-        const newTables = [];
-        for (let i = 0; i < count; i++) {
-          const tableNumber = `${prefix}${startFrom + i}`;
-          const tableToken = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36);
-          newTables.push({
-            _id: `demo_table_${Date.now()}_${i}`,
-            tableNumber,
-            displayName: `Table ${tableNumber}`,
-            capacity: 4,
-            location: 'Indoor',
-            status: 'vacant' as const,
-            cafeId: 'demo_cafe',
-            tableToken
-          });
-        }
-        return { success: true, message: `Created ${count} tables successfully`, tables: newTables };
-      }
+      if (!auth) return { success: false, message: 'Auth not initialized' };
       if (!auth.currentUser) return { success: false, message: 'Not authenticated' };
       if (!db) return { success: false, message: 'Database not initialized' };
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser!.uid));

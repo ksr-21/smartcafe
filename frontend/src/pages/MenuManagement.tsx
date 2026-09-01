@@ -505,8 +505,10 @@ export const MenuManagement: React.FC = () => {
 
             <form onSubmit={handleSaveCategory}>
               <div className="form-group">
-                <label className="form-label">Category Name</label>
+                <label htmlFor="catName" className="form-label">Category Name</label>
                 <input
+                  id="catName"
+                  name="catName"
                   type="text"
                   className="form-input"
                   placeholder="e.g. Desserts"
@@ -517,8 +519,10 @@ export const MenuManagement: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Sort Order (Hierarchy)</label>
+                <label htmlFor="catSort" className="form-label">Sort Order (Hierarchy)</label>
                 <input
+                  id="catSort"
+                  name="catSort"
                   type="number"
                   className="form-input"
                   value={categoryForm.sortOrder}
@@ -551,8 +555,10 @@ export const MenuManagement: React.FC = () => {
             <form onSubmit={handleSaveItem}>
               <div className="grid-cols-12">
                 <div className="col-span-12 form-group">
-                  <label className="form-label">Dish Name *</label>
+                  <label htmlFor="itemName" className="form-label">Dish Name *</label>
                   <input
+                    id="itemName"
+                    name="itemName"
                     type="text"
                     className="form-input"
                     placeholder="e.g. Hazelnut Frappe"
@@ -563,8 +569,10 @@ export const MenuManagement: React.FC = () => {
                 </div>
 
                 <div className="col-span-12 form-group">
-                  <label className="form-label">Description</label>
+                  <label htmlFor="itemDesc" className="form-label">Description</label>
                   <textarea
+                    id="itemDesc"
+                    name="itemDesc"
                     className="form-input"
                     placeholder="Brief description of taste, ingredients..."
                     value={itemForm.description}
@@ -574,8 +582,10 @@ export const MenuManagement: React.FC = () => {
                 </div>
 
                 <div className="col-span-6 form-group">
-                  <label className="form-label">Price (₹) *</label>
+                  <label htmlFor="itemPrice" className="form-label">Price (₹) *</label>
                   <input
+                    id="itemPrice"
+                    name="itemPrice"
                     type="number"
                     className="form-input"
                     value={itemForm.price || ''}
@@ -585,8 +595,10 @@ export const MenuManagement: React.FC = () => {
                 </div>
 
                 <div className="col-span-6 form-group">
-                  <label className="form-label">Discount Price (₹) (Optional)</label>
+                  <label htmlFor="itemDiscount" className="form-label">Discount Price (₹) (Optional)</label>
                   <input
+                    id="itemDiscount"
+                    name="itemDiscount"
                     type="number"
                     className="form-input"
                     value={itemForm.discountedPrice || ''}
@@ -595,8 +607,10 @@ export const MenuManagement: React.FC = () => {
                 </div>
 
                 <div className="col-span-6 form-group">
-                  <label className="form-label">Category *</label>
+                  <label htmlFor="itemCategory" className="form-label">Category *</label>
                   <select
+                    id="itemCategory"
+                    name="itemCategory"
                     className="form-input"
                     value={itemForm.category}
                     onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
@@ -609,8 +623,10 @@ export const MenuManagement: React.FC = () => {
                 </div>
 
                 <div className="col-span-6 form-group">
-                  <label className="form-label">Dietary Type *</label>
+                  <label htmlFor="itemDietary" className="form-label">Dietary Type *</label>
                   <select
+                    id="itemDietary"
+                    name="itemDietary"
                     className="form-input"
                     value={itemForm.type}
                     onChange={(e) => setItemForm({ ...itemForm, type: e.target.value as any })}
@@ -623,8 +639,10 @@ export const MenuManagement: React.FC = () => {
                 </div>
 
                 <div className="col-span-6 form-group">
-                  <label className="form-label">Prep Time (min) *</label>
+                  <label htmlFor="itemPrepTime" className="form-label">Prep Time (min) *</label>
                   <input
+                    id="itemPrepTime"
+                    name="itemPrepTime"
                     type="number"
                     className="form-input"
                     value={itemForm.preparationTime || ''}
@@ -634,8 +652,10 @@ export const MenuManagement: React.FC = () => {
                 </div>
 
                 <div className="col-span-6 form-group">
-                  <label className="form-label">Image URL / Preset</label>
+                  <label htmlFor="itemImageUrl" className="form-label">Image URL / Preset</label>
                   <input
+                    id="itemImageUrl"
+                    name="itemImageUrl"
                     type="text"
                     className="form-input"
                     placeholder="https://unsplash.com/..."
@@ -645,7 +665,7 @@ export const MenuManagement: React.FC = () => {
                 </div>
 
                 <div className="col-span-12 form-group">
-                  <label className="form-label">Upload Image File (Swaps URL)</label>
+                  <label htmlFor="itemImageFile" className="form-label">Upload Image File (Swaps URL)</label>
                   <div style={{
                     border: '2px dashed var(--border-color)',
                     padding: '16px',
@@ -655,6 +675,8 @@ export const MenuManagement: React.FC = () => {
                     position: 'relative'
                   }}>
                     <input
+                      id="itemImageFile"
+                      name="itemImageFile"
                       type="file"
                       accept="image/*"
                       onChange={(e) => {

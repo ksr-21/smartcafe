@@ -302,8 +302,10 @@ export const OrderStatus: React.FC = () => {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Review Comment</label>
+                    <label htmlFor="reviewComment" className="form-label">Review Comment</label>
                     <textarea 
+                      id="reviewComment"
+                      name="reviewComment"
                       className="form-input"
                       placeholder="e.g. Delicious Hazelnut coffee! Will order again."
                       value={comment}
