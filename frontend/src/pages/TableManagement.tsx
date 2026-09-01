@@ -408,8 +408,10 @@ export const TableManagement: React.FC = () => {
 
             <form onSubmit={handleCreateTable}>
               <div className="form-group">
-                <label className="form-label">Table ID / Number *</label>
+                <label htmlFor="tableNumber" className="form-label">Table ID / Number *</label>
                 <input
+                  id="tableNumber"
+                  name="tableNumber"
                   type="text"
                   className="form-input"
                   placeholder="e.g. 5"
@@ -420,8 +422,10 @@ export const TableManagement: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Display Name</label>
+                <label htmlFor="displayName" className="form-label">Display Name</label>
                 <input
+                  id="displayName"
+                  name="displayName"
                   type="text"
                   className="form-input"
                   placeholder="e.g. Table 5 (Window)"
@@ -431,8 +435,10 @@ export const TableManagement: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Capacity (Seats) *</label>
+                <label htmlFor="capacity" className="form-label">Capacity (Seats) *</label>
                 <input
+                  id="capacity"
+                  name="capacity"
                   type="number"
                   className="form-input"
                   value={tableForm.capacity}
@@ -443,8 +449,10 @@ export const TableManagement: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Location</label>
+                <label htmlFor="location" className="form-label">Location</label>
                 <select
+                  id="location"
+                  name="location"
                   className="form-input"
                   value={tableForm.location}
                   onChange={(e) => setTableForm({ ...tableForm, location: e.target.value })}
@@ -496,8 +504,10 @@ export const TableManagement: React.FC = () => {
 
             <form onSubmit={handleBulkCreate}>
               <div className="form-group">
-                <label className="form-label">Number of Tables to Generate *</label>
+                <label htmlFor="bulkCount" className="form-label">Number of Tables to Generate *</label>
                 <input
+                  id="bulkCount"
+                  name="bulkCount"
                   type="number"
                   className="form-input"
                   value={bulkForm.count}
@@ -509,8 +519,10 @@ export const TableManagement: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Table Number Prefix (Optional)</label>
+                <label htmlFor="bulkPrefix" className="form-label">Table Number Prefix (Optional)</label>
                 <input
+                  id="bulkPrefix"
+                  name="bulkPrefix"
                   type="text"
                   className="form-input"
                   placeholder="e.g. B (Generates B1, B2, ...)"
@@ -520,8 +532,10 @@ export const TableManagement: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Start Number From *</label>
+                <label htmlFor="bulkStart" className="form-label">Start Number From *</label>
                 <input
+                  id="bulkStart"
+                  name="bulkStart"
                   type="number"
                   className="form-input"
                   value={bulkForm.startFrom}

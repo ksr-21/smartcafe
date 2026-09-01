@@ -242,6 +242,8 @@ export const BillingInvoices: React.FC = () => {
             }}>
               <Search size={14} color="var(--text-muted)" />
               <input 
+                id="searchInvoice"
+                name="searchInvoice"
                 type="text" 
                 placeholder="Search inv..."
                 value={searchQuery}
@@ -335,8 +337,10 @@ export const BillingInvoices: React.FC = () => {
 
             <form onSubmit={handleCheckout}>
               <div className="form-group">
-                <label className="form-label">Discount Amount (₹)</label>
+                <label htmlFor="discountAmount" className="form-label">Discount Amount (₹)</label>
                 <input 
+                  id="discountAmount"
+                  name="discountAmount"
                   type="number" 
                   className="form-input"
                   min={0}
@@ -347,8 +351,10 @@ export const BillingInvoices: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Payment Method *</label>
+                <label htmlFor="paymentMethod" className="form-label">Payment Method *</label>
                 <select 
+                  id="paymentMethod"
+                  name="paymentMethod"
                   className="form-input"
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}

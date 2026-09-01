@@ -529,8 +529,10 @@ export const CustomerMenu: React.FC = () => {
 
                   {/* Special Prep Instructions */}
                   <div style={{ marginTop: '16px' }}>
-                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Chef Notes / Special Instructions</label>
+                    <label htmlFor="specialInstructions" className="form-label" style={{ fontSize: '0.8rem' }}>Chef Notes / Special Instructions</label>
                     <textarea 
+                      id="specialInstructions"
+                      name="specialInstructions"
                       className="form-input"
                       placeholder="e.g. Make it extra spicy. Bring ice water."
                       value={specialInstructions}
@@ -566,8 +568,10 @@ export const CustomerMenu: React.FC = () => {
                   </p>
 
                   <div className="form-group">
-                    <label className="form-label">Your Name *</label>
+                    <label htmlFor="customerName" className="form-label">Your Name *</label>
                     <input 
+                      id="customerName"
+                      name="customerName"
                       type="text" 
                       className="form-input"
                       placeholder="e.g. Priya Sharma"
@@ -579,8 +583,10 @@ export const CustomerMenu: React.FC = () => {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Mobile Number (Optional)</label>
+                    <label htmlFor="customerMobile" className="form-label">Mobile Number (Optional)</label>
                     <input 
+                      id="customerMobile"
+                      name="customerMobile"
                       type="tel" 
                       className="form-input"
                       placeholder="e.g. 9876543210"
