@@ -86,6 +86,8 @@ export const CustomerMenu: React.FC = () => {
         setCafe(res.cafe);
         setCategories(res.categories);
         setMenuItems(res.items);
+      } else {
+        setError(res.message || 'Failed to load cafe menu.');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load cafe menu.');
