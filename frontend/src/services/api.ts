@@ -475,7 +475,7 @@ export const api = {
 
       let tableNumber = 'Unknown';
       if (!querySnapshot.empty) {
-         tableNumber = querySnapshot.docs[0].data().tableNumber;
+         tableNumber = querySnapshot.docs[0].data().tableNumber || 'Unknown';
       }
 
       // Fetch prices from menu items
@@ -496,11 +496,17 @@ export const api = {
 
         const itemSubtotal = price * item.quantity;
         subtotal += itemSubtotal;
-        return {
-          ...item,
+
+        const formattedItem: any = {
+          menuItemId: item.menuItemId,
+          name: item.name,
+          quantity: item.quantity,
           price,
           subtotal: itemSubtotal
         };
+        if (item.notes !== undefined) formattedItem.notes = item.notes;
+        if (item.customizations !== undefined) formattedItem.customizations = item.customizations;
+        return formattedItem;
       }));
 
       const orderNumber = Math.floor(1000 + Math.random() * 9000).toString();
