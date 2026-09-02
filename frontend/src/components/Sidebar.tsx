@@ -28,6 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { to: '/admin/menu', label: 'Menu Catalog', icon: Coffee },
     { to: '/admin/tables', label: 'Table Management', icon: Grid },
     { to: '/admin/billing', label: 'Bills & Billing', icon: Receipt },
+    { to: '/admin/staff', label: 'Staff Management', icon: Users },
   ];
 
   const kitchenLinks = [

@@ -12,8 +12,12 @@ import {
   X, 
   ChefHat, 
   ArrowRight,
-  AlertCircle
+  AlertCircle,
+  CreditCard,
+  Download,
+  CheckCircle
 } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 interface OrderItem {
   menuItem: string;
@@ -46,6 +50,17 @@ export const LiveOrders: React.FC = () => {
   
   // Status filter tab
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'preparing' | 'ready' | 'active'>('pending');
+
+  // Checkout modal states
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [discount, setDiscount] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+
+  // Success Modal
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [createdInvoiceId, setCreatedInvoiceId] = useState('');
+  const [createdInvoiceNum, setCreatedInvoiceNum] = useState('');
 
   // Cancel order modal state
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
@@ -125,6 +140,45 @@ export const LiveOrders: React.FC = () => {
     } catch (err: any) {
       setError('Failed to cancel order.');
     }
+  };
+
+  // Action: Checkout
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+    setError('');
+
+    try {
+      const res = await api.invoices.create({
+        orderId: selectedOrder._id,
+        paymentMethod,
+        discount: Number(discount) || 0
+      });
+
+      if (res.success && res.invoice) {
+        // Trigger visual confetti celebration
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 }
+        });
+
+        setCreatedInvoiceId(res.invoice._id);
+        setCreatedInvoiceNum(res.invoice.invoiceNumber);
+        setCheckoutModalOpen(false);
+        setSuccessModalOpen(true);
+
+        // Remove from list or change status
+        setOrders(prev => prev.filter(o => o._id !== selectedOrder._id));
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to process checkout billing.');
+    }
+  };
+
+  const downloadPDFInvoice = (id: string) => {
+    // Open in new window/download directly
+    window.open(api.invoices.getPDFUrl(id), '_blank');
   };
 
   // Filters
@@ -323,9 +377,18 @@ export const LiveOrders: React.FC = () => {
                 )}
 
                 {order.status === 'served' && (
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textAlign: 'center', width: '100%', fontStyle: 'italic' }}>
-                    Served. Awaiting checkout bill generation.
-                  </div>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1, padding: '8px 12px', fontSize: '0.8rem' }}
+                    onClick={() => {
+                      setSelectedOrder(order);
+                      setDiscount(0);
+                      setPaymentMethod('cash');
+                      setCheckoutModalOpen(true);
+                    }}
+                  >
+                    <CreditCard size={14} /> Checkout
+                  </button>
                 )}
               </div>
             </div>
@@ -370,6 +433,139 @@ export const LiveOrders: React.FC = () => {
                 <button type="submit" className="btn btn-danger" disabled={!cancelReason}>Reject Order</button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Checkout Modal */}
+      {checkoutModalOpen && selectedOrder && createPortal(
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ padding: '30px', maxWidth: '450px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0 }}>Checkout - Table {selectedOrder.tableNumber}</h3>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setCheckoutModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{
+              backgroundColor: 'var(--bg-tertiary)',
+              padding: '16px',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: '20px',
+              fontSize: '0.9rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span>Subtotal:</span>
+                <span>₹{selectedOrder.subtotal}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+                <span>GST Tax (5%):</span>
+                <span>₹{selectedOrder.gstAmount}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                <span>Bill Total:</span>
+                <span>₹{selectedOrder.totalAmount}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleCheckout}>
+              <div className="form-group">
+                <label htmlFor="discountAmount" className="form-label">Discount Amount (₹)</label>
+                <input
+                  id="discountAmount"
+                  name="discountAmount"
+                  type="number"
+                  className="form-input"
+                  min={0}
+                  max={selectedOrder.totalAmount}
+                  value={discount || ''}
+                  onChange={(e) => setDiscount(Number(e.target.value))}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="paymentMethod" className="form-label">Payment Method *</label>
+                <select
+                  id="paymentMethod"
+                  name="paymentMethod"
+                  className="form-input"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  required
+                >
+                  <option value="cash">Cash Payment</option>
+                  <option value="upi">UPI (GPay / PhonePe / Paytm)</option>
+                  <option value="card">Credit / Debit Card</option>
+                  <option value="online">Online Banking</option>
+                </select>
+              </div>
+
+              <div style={{
+                borderTop: '1px solid var(--border-color)',
+                paddingTop: '20px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginTop: '20px'
+              }}>
+                <div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Final Amount Due</span>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>
+                    ₹{Math.max(0, selectedOrder.totalAmount - discount)}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setCheckoutModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary">Generate Invoice</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Checkout Success Modal */}
+      {successModalOpen && createPortal(
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ padding: '30px', textAlign: 'center', maxWidth: '400px' }}>
+            <div style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--success-light)',
+              color: 'var(--success)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 20px'
+            }}>
+              <CheckCircle size={32} />
+            </div>
+
+            <h3 style={{ fontSize: '1.4rem', marginBottom: '8px' }}>Checkout Completed!</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px' }}>
+              Invoice <strong>{createdInvoiceNum}</strong> generated successfully. Table is marked vacant.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={() => downloadPDFInvoice(createdInvoiceId)}
+                className="btn btn-primary"
+                style={{ gap: '8px' }}
+              >
+                <Download size={18} />
+                Download PDF Bill
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setSuccessModalOpen(false)}
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>,
         document.body

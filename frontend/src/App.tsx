@@ -20,6 +20,7 @@ import { TableManagement } from './pages/TableManagement';
 import { LiveOrders } from './pages/LiveOrders';
 import { KitchenDisplay } from './pages/KitchenDisplay';
 import { BillingInvoices } from './pages/BillingInvoices';
+import { StaffManagement } from './pages/StaffManagement';
 import { SuperAdmin } from './pages/SuperAdmin';
 import { CustomerMenu } from './pages/CustomerMenu';
 import { OrderStatus } from './pages/OrderStatus';
@@ -136,6 +137,16 @@ export const App: React.FC = () => {
                       </AdminLayout>
                     </ProtectedRoute>
                   } 
+                />
+                <Route
+                  path="/admin/staff"
+                  element={
+                    <ProtectedRoute allowedRoles={['cafe_admin']}>
+                      <AdminLayout>
+                        <StaffManagement />
+                      </AdminLayout>
+                    </ProtectedRoute>
+                  }
                 />
 
                 {/* Kitchen queue routes */}

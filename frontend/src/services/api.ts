@@ -100,10 +100,41 @@ export const api = {
       // Firebase auth handles this through a redirect out-of-the-box, or a specialized flow.
       return { success: false, message: 'Not implemented in fully client-side mode.' };
     },
-    addStaff: async (_body: any) => {
-      // Typically needs admin SDK to create users without logging out. We will just mock or return error for now.
-      return { success: false, message: 'Staff creation requires Admin SDK or separate flow.' };
+    addStaff: async (body: any) => {
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated' };
+      if (!db) return { success: false, message: 'Database not initialized' };
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userDoc = await getDoc(userRef);
+      const cafe = userDoc.data()?.cafe || {};
+
+      const newStaff = {
+        name: body.name,
+        email: body.email,
+        role: 'kitchen_staff',
+        cafe,
+        createdAt: new Date().toISOString()
+      };
+
+      // We simulate user creation by adding directly to users collection
+      // For real authentication without logging out the admin, a backend Admin SDK is required.
+      const docRef = await addDoc(collection(db, 'users'), newStaff);
+      return { success: true, staff: { _id: docRef.id, ...newStaff } };
     },
+    getStaff: async () => {
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated', staff: [] };
+      if (!db) return { success: false, message: 'Database not initialized', staff: [] };
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      if (!cafeId) return { success: false, message: 'No cafe ID', staff: [] };
+
+      const q = query(
+        collection(db, 'users'),
+        where('cafe.id', '==', cafeId),
+        where('role', '==', 'kitchen_staff')
+      );
+      const snapshot = await getDocs(q);
+      return { success: true, staff: snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() } as any)) };
+    }
   },
 
   // Cafe Settings
