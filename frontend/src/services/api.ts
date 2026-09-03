@@ -434,16 +434,138 @@ export const api = {
     exportExcelUrl: () => ``,
   },
 
-  // Analytics
+// Analytics
   analytics: {
-    getOverview: async (_period?: string) => {
-      return { success: true, stats: { revenue: 0, orders: 0, avgOrderValue: 0 } };
+    getOverview: async (period?: string) => {
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated', stats: null };
+      if (!db) return { success: false, message: 'Database not initialized', stats: null };
+
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      if (!cafeId) return { success: false, message: 'No cafe associated', stats: null };
+
+      const invoicesRef = collection(db, 'invoices');
+      let invoicesQ;
+
+      const now = new Date();
+      if (period === 'today') {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          invoicesQ = query(invoicesRef, where('cafeId', '==', cafeId), where('createdAt', '>=', today.toISOString()));
+      } else if (period === 'week') {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          invoicesQ = query(invoicesRef, where('cafeId', '==', cafeId), where('createdAt', '>=', weekAgo.toISOString()));
+      } else if (period === 'month') {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          invoicesQ = query(invoicesRef, where('cafeId', '==', cafeId), where('createdAt', '>=', monthAgo.toISOString()));
+      } else {
+          invoicesQ = query(invoicesRef, where('cafeId', '==', cafeId));
+      }
+
+      const invoicesSnap = await getDocs(invoicesQ);
+
+      let revenue = 0;
+      let orderCount = 0;
+
+      invoicesSnap.docs.forEach(d => {
+        const data = d.data();
+        revenue += (data.totalAmount || 0);
+        orderCount++;
+      });
+      const avgOrderValue = orderCount > 0 ? revenue / orderCount : 0;
+
+      const tablesRef = collection(db, 'tables');
+      const tablesQ = query(tablesRef, where('cafeId', '==', cafeId), where('status', '==', 'occupied'));
+      const tablesSnap = await getDocs(tablesQ);
+      const activeTables = tablesSnap.size;
+
+      return { success: true, stats: { totalRevenue: revenue, totalOrders: orderCount, averageOrderValue: avgOrderValue, activeTables } };
     },
-    getSalesTrend: async (_period?: string) => {
-      return { success: true, trendData: [] };
+    getSalesTrend: async (period?: string) => {
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated', trendData: [] };
+      if (!db) return { success: false, message: 'Database not initialized', trendData: [] };
+
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      if (!cafeId) return { success: false, message: 'No cafe associated', trendData: [] };
+
+      const invoicesRef = collection(db, 'invoices');
+      let invoicesQ;
+
+      const now = new Date();
+      if (period === 'today') {
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          invoicesQ = query(invoicesRef, where('cafeId', '==', cafeId), where('createdAt', '>=', today.toISOString()));
+      } else if (period === 'week') {
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          invoicesQ = query(invoicesRef, where('cafeId', '==', cafeId), where('createdAt', '>=', weekAgo.toISOString()));
+      } else if (period === 'month') {
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          invoicesQ = query(invoicesRef, where('cafeId', '==', cafeId), where('createdAt', '>=', monthAgo.toISOString()));
+      } else {
+          invoicesQ = query(invoicesRef, where('cafeId', '==', cafeId));
+      }
+
+      const invoicesSnap = await getDocs(invoicesQ);
+
+      const trendData: any[] = [];
+      const salesMap: Record<string, number> = {};
+      const sortMap: Record<string, Date> = {};
+
+      invoicesSnap.docs.forEach(d => {
+        const data = d.data();
+        const createdAt = new Date(data.createdAt);
+
+        let label = '';
+        if (period === 'today') {
+            label = createdAt.toLocaleTimeString([], {hour: '2-digit'});
+        } else if (period === 'week') {
+            label = createdAt.toLocaleDateString([], {weekday: 'short'});
+        } else {
+            label = createdAt.toLocaleDateString([], {month: 'short', day: 'numeric'});
+        }
+
+        if (label) {
+            salesMap[label] = (salesMap[label] || 0) + (data.totalAmount || 0);
+            if (!sortMap[label] || createdAt < sortMap[label]) {
+                sortMap[label] = createdAt;
+            }
+        }
+      });
+
+      Object.keys(salesMap).forEach(key => {
+          trendData.push({ label: key, sales: salesMap[key], date: sortMap[key] });
+      });
+
+      trendData.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      return { success: true, trendData };
     },
     getTopItems: async () => {
-      return { success: true, topItems: [] };
+      if (!auth || !auth.currentUser) return { success: false, message: 'Not authenticated', topItems: [] };
+      if (!db) return { success: false, message: 'Database not initialized', topItems: [] };
+
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const cafeId = userDoc.data()?.cafe?.id;
+      if (!cafeId) return { success: false, message: 'No cafe associated', topItems: [] };
+
+      const invoicesRef = collection(db, 'invoices');
+      const invoicesQ = query(invoicesRef, where('cafeId', '==', cafeId));
+      const invoicesSnap = await getDocs(invoicesQ);
+
+      const itemCounts: Record<string, number> = {};
+      invoicesSnap.docs.forEach(doc => {
+        const items = doc.data().items || [];
+        items.forEach((item: any) => {
+          itemCounts[item.name] = (itemCounts[item.name] || 0) + (item.quantity || 1);
+        });
+      });
+
+      const topItems = Object.entries(itemCounts)
+        .map(([name, quantity]) => ({ name, quantity }))
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 5);
+
+      return { success: true, topItems };
     },
   },
 
